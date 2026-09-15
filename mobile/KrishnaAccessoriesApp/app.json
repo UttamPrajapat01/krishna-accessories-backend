@@ -2,7 +2,7 @@
   "expo": {
     "name": "Krishna Accessories",
     "slug": "krishna-accessories",
-    "version": "1.0.5",
+    "version": "1.0.6",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
@@ -38,7 +38,7 @@
         "backgroundColor": "#FFFFFF"
       },
       "package": "com.krishnaaccessories.app",
-      "versionCode": 5,
+      "versionCode": 6,
       "permissions": [
         "INTERNET",
         "ACCESS_NETWORK_STATE",

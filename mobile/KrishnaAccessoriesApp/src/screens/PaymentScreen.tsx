@@ -8,8 +8,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import WebView from 'react-native-webview';
-import type { WebViewMessageEvent } from 'react-native-webview';
+import WebView, { WebViewMessageEvent } from 'react-native-webview';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../theme/colors';
 import { Header } from '../components/Header';
@@ -17,28 +16,56 @@ import { Button } from '../components/Button';
 import { paymentService, RazorpayOrderInfo } from '../services/api/paymentService';
 import { useAuth } from '../context/AuthContext';
 
+type PaymentMethodType = 'all' | 'card' | 'upi' | 'netbanking' | 'wallet';
+
 // ─── Razorpay Checkout HTML ──────────────────────────────────────────────────
-const buildRazorpayHtml = (info: RazorpayOrderInfo, userName: string, userEmail: string, userPhone: string): string => {
-  // Amount must be in paise (integer) for the checkout SDK
+const buildRazorpayHtml = (
+  info: RazorpayOrderInfo,
+  userName: string,
+  userEmail: string,
+  userPhone: string,
+  preferredMethod: PaymentMethodType = 'all'
+): string => {
   const amountInPaise = Math.round(info.amount * 100);
 
   return `
 <!DOCTYPE html>
 <html>
 <head>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
-  <title>Krishna Accessories Payment</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Krishna Accessories Luxury Payment</title>
   <style>
-    body { margin: 0; background: #0a0a0a; display: flex; align-items: center; justify-content: center; height: 100vh; font-family: sans-serif; }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: #0a0a0a;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      color: #fff;
+    }
     .loader { color: #D4AF37; font-size: 15px; text-align: center; }
-    .spinner { border: 3px solid #333; border-top: 3px solid #D4AF37; border-radius: 50%; width: 36px; height: 36px; animation: spin 0.8s linear infinite; margin: 0 auto 14px; }
+    .spinner {
+      border: 3px solid #222;
+      border-top: 3px solid #D4AF37;
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      animation: spin 0.8s linear infinite;
+      margin: 0 auto 16px;
+    }
+    .brand { font-size: 11px; letter-spacing: 2px; color: #888; margin-top: 8px; text-transform: uppercase; }
     @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
   </style>
 </head>
 <body>
   <div class="loader">
     <div class="spinner"></div>
-    Loading Razorpay Checkout...
+    <div>Connecting Secure Payment Gateway...</div>
+    <div class="brand">Krishna Accessories</div>
   </div>
   <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
   <script>
@@ -48,15 +75,19 @@ const buildRazorpayHtml = (info: RazorpayOrderInfo, userName: string, userEmail:
         amount: ${amountInPaise},
         currency: "${info.currency}",
         name: "Krishna Accessories",
-        description: "Order ${info.orderNumber}",
+        description: "Order #${info.orderNumber}",
         order_id: "${info.razorpayOrderId}",
         prefill: {
           name: "${userName.replace(/"/g, '\\"')}",
           email: "${userEmail.replace(/"/g, '\\"')}",
           contact: "${userPhone.replace(/"/g, '\\"')}"
         },
-        theme: { color: "#D4AF37", backdrop_color: "#0a0a0a" },
+        theme: {
+          color: "#D4AF37",
+          backdrop_color: "#0a0a0a"
+        },
         modal: {
+          confirm_close: false,
           ondismiss: function() {
             window.ReactNativeWebView.postMessage(JSON.stringify({ type: "dismissed" }));
           }
@@ -78,12 +109,17 @@ const buildRazorpayHtml = (info: RazorpayOrderInfo, userName: string, userEmail:
             type: "failed",
             code: response.error.code,
             description: response.error.description,
+            source: response.error.source,
+            step: response.error.step,
             reason: response.error.reason
           }));
         });
         rzp.open();
       } catch(e) {
-        window.ReactNativeWebView.postMessage(JSON.stringify({ type: "error", message: e.message }));
+        window.ReactNativeWebView.postMessage(JSON.stringify({
+          type: "error",
+          message: e.message || "Failed to initialize Razorpay checkout."
+        }));
       }
     };
   </script>
@@ -102,6 +138,7 @@ export const PaymentScreen: React.FC<{ navigation: any; route: any }> = ({ navig
   const [showWebView, setShowWebView] = useState(false);
   const [razorpayOrder, setRazorpayOrder] = useState<RazorpayOrderInfo | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [selectedMethod, setSelectedMethod] = useState<PaymentMethodType>('all');
   const webViewRef = useRef<WebView>(null);
 
   useEffect(() => {
@@ -122,8 +159,11 @@ export const PaymentScreen: React.FC<{ navigation: any; route: any }> = ({ navig
     }
   };
 
-  const handleOpenCheckout = () => {
+  const handleOpenCheckout = (methodOverride?: PaymentMethodType) => {
     if (!razorpayOrder) return;
+    if (methodOverride) {
+      setSelectedMethod(methodOverride);
+    }
     setShowWebView(true);
   };
 
@@ -154,7 +194,7 @@ export const PaymentScreen: React.FC<{ navigation: any; route: any }> = ({ navig
         } else {
           Alert.alert(
             'Verification Failed',
-            'Payment was received but server verification failed. Please contact support with your order number.'
+            'Payment was processed by bank but server verification failed. Please contact support with your order number.'
           );
         }
       } catch (err: any) {
@@ -168,18 +208,18 @@ export const PaymentScreen: React.FC<{ navigation: any; route: any }> = ({ navig
     } else if (msg.type === 'failed') {
       setShowWebView(false);
       Alert.alert(
-        'Payment Failed',
-        `${msg.description || 'Your payment could not be processed.'}\n\nReason: ${msg.reason || 'Unknown'}`,
+        'Payment Incomplete',
+        `${msg.description || 'Payment was not completed.'}\n\n${msg.reason ? `Reason: ${msg.reason}` : ''}`,
         [
-          { text: 'Try Again', onPress: handleOpenCheckout },
-          { text: 'Pay Later', onPress: () => navigation.navigate('Orders') },
+          { text: 'Try Again', onPress: () => handleOpenCheckout() },
+          { text: 'View in Orders', onPress: () => navigation.navigate('Orders') },
         ]
       );
     } else if (msg.type === 'dismissed') {
       setShowWebView(false);
     } else if (msg.type === 'error') {
       setShowWebView(false);
-      Alert.alert('Gateway Error', msg.message || 'Razorpay checkout failed to load.');
+      Alert.alert('Gateway Notice', msg.message || 'Razorpay checkout encountered an issue.');
     }
   }, [orderId, razorpayOrder, orderNumber, amount]);
 
@@ -188,9 +228,17 @@ export const PaymentScreen: React.FC<{ navigation: any; route: any }> = ({ navig
         razorpayOrder,
         user?.fullName || 'Customer',
         user?.email || '',
-        user?.phoneNumber || ''
+        user?.phoneNumber || '',
+        selectedMethod
       )
     : null;
+
+  const paymentMethods: { id: PaymentMethodType; icon: string; label: string }[] = [
+    { id: 'card', icon: 'card-outline', label: 'Credit /\nDebit' },
+    { id: 'upi', icon: 'flash-outline', label: 'UPI /\nQR' },
+    { id: 'netbanking', icon: 'business-outline', label: 'Net\nBanking' },
+    { id: 'wallet', icon: 'wallet-outline', label: 'Wallets' },
+  ];
 
   return (
     <View style={styles.container}>
@@ -211,31 +259,29 @@ export const PaymentScreen: React.FC<{ navigation: any; route: any }> = ({ navig
         }}
       >
         <View style={styles.webViewContainer}>
-          {/* Close button */}
           <TouchableOpacity style={styles.closeBtn} onPress={() => setShowWebView(false)}>
             <Ionicons name="close" size={24} color={Colors.text} />
           </TouchableOpacity>
-          {razorpayHtml && (() => {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const RazorpayWebView = WebView as any;
-            return (
-              <RazorpayWebView
-                ref={webViewRef}
-                source={{ html: razorpayHtml }}
-                onMessage={handleWebViewMessage}
-                javaScriptEnabled
-                domStorageEnabled
-                startInLoadingState
-                renderLoading={() => (
-                  <View style={styles.webViewLoader}>
-                    <ActivityIndicator size="large" color={Colors.accent} />
-                    <Text style={styles.loadingText}>Loading Razorpay...</Text>
-                  </View>
-                )}
-                style={styles.webView}
-              />
-            );
-          })()}
+          {razorpayHtml && (
+            <WebView
+              ref={webViewRef}
+              source={{ html: razorpayHtml }}
+              onMessage={handleWebViewMessage}
+              javaScriptEnabled={true}
+              domStorageEnabled={true}
+              startInLoadingState={true}
+              mixedContentMode="always"
+              allowsInlineMediaPlayback={true}
+              userAgent="Mozilla/5.0 (Linux; Android 13; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36"
+              renderLoading={() => (
+                <View style={styles.webViewLoader}>
+                  <ActivityIndicator size="large" color={Colors.accent} />
+                  <Text style={styles.loadingText}>Opening Razorpay Secure Gateway...</Text>
+                </View>
+              )}
+              style={styles.webView}
+            />
+          )}
         </View>
       </Modal>
 
@@ -255,7 +301,7 @@ export const PaymentScreen: React.FC<{ navigation: any; route: any }> = ({ navig
         {loading ? (
           <View style={styles.centerBox}>
             <ActivityIndicator size="large" color={Colors.accent} />
-            <Text style={styles.loadingText}>Initializing Razorpay Secure Gateway...</Text>
+            <Text style={styles.loadingText}>Connecting to Razorpay Secure Gateway...</Text>
           </View>
         ) : error ? (
           <View style={styles.errorBox}>
@@ -276,34 +322,56 @@ export const PaymentScreen: React.FC<{ navigation: any; route: any }> = ({ navig
             </View>
 
             <Text style={styles.gatewayDescription}>
-              Pay securely using UPI, Credit/Debit Cards, Net Banking, or Wallets.
+              Select your payment method below or tap PAY to choose inside the gateway:
             </Text>
 
-            {/* Payment Methods Grid */}
+            {/* Interactive Payment Methods Grid */}
             <View style={styles.methodsGrid}>
-              {[
-                { icon: 'card-outline', label: 'Credit /\nDebit' },
-                { icon: 'flash-outline', label: 'UPI / QR' },
-                { icon: 'business-outline', label: 'Net\nBanking' },
-                { icon: 'wallet-outline', label: 'Wallets' },
-              ].map((m) => (
-                <View key={m.label} style={styles.methodItem}>
-                  <Ionicons name={m.icon as any} size={24} color={Colors.accent} />
-                  <Text style={styles.methodLabel}>{m.label}</Text>
-                </View>
-              ))}
+              {paymentMethods.map((m) => {
+                const isSelected = selectedMethod === m.id;
+                return (
+                  <TouchableOpacity
+                    key={m.id}
+                    style={[styles.methodItem, isSelected && styles.methodItemSelected]}
+                    onPress={() => {
+                      setSelectedMethod(isSelected ? 'all' : m.id);
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <Ionicons
+                      name={m.icon as any}
+                      size={24}
+                      color={isSelected ? Colors.accent : Colors.textMuted}
+                    />
+                    <Text style={[styles.methodLabel, isSelected && styles.methodLabelSelected]}>
+                      {m.label}
+                    </Text>
+                    {isSelected && (
+                      <View style={styles.selectedBadge}>
+                        <Ionicons name="checkmark-circle" size={14} color={Colors.accent} />
+                      </View>
+                    )}
+                  </TouchableOpacity>
+                );
+              })}
             </View>
 
             {/* Razorpay Order ID */}
             <View style={styles.infoBox}>
               <Text style={styles.infoLabel}>Razorpay Order ID</Text>
-              <Text style={styles.infoValue} numberOfLines={1}>{razorpayOrder?.razorpayOrderId}</Text>
+              <Text style={styles.infoValue} numberOfLines={1}>
+                {razorpayOrder?.razorpayOrderId}
+              </Text>
             </View>
 
             {/* Pay Button */}
             <Button
-              title={processing ? 'VERIFYING WITH SERVER...' : `PAY ₹${(amount || razorpayOrder?.amount || 0).toLocaleString('en-IN')}`}
-              onPress={handleOpenCheckout}
+              title={
+                processing
+                  ? 'VERIFYING WITH SERVER...'
+                  : `PAY ₹${(amount || razorpayOrder?.amount || 0).toLocaleString('en-IN')}`
+              }
+              onPress={() => handleOpenCheckout()}
               loading={processing}
               style={{ marginTop: 24 }}
             />
@@ -346,10 +414,13 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     padding: 6,
   },
-  webView: { flex: 1 },
+  webView: { flex: 1, backgroundColor: '#0a0a0a' },
   webViewLoader: {
     position: 'absolute',
-    top: 0, left: 0, right: 0, bottom: 0,
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#0a0a0a',
@@ -398,14 +469,21 @@ const styles = StyleSheet.create({
   methodItem: {
     backgroundColor: Colors.card,
     borderRadius: 10,
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: Colors.border,
     paddingVertical: 12,
     paddingHorizontal: 8,
     alignItems: 'center',
     width: '23%',
+    position: 'relative',
+  },
+  methodItemSelected: {
+    borderColor: Colors.accent,
+    backgroundColor: 'rgba(212, 175, 55, 0.12)',
   },
   methodLabel: { color: Colors.textMuted, fontSize: 10, fontWeight: '600', marginTop: 6, textAlign: 'center' },
+  methodLabelSelected: { color: Colors.accent, fontWeight: '700' },
+  selectedBadge: { position: 'absolute', top: 4, right: 4 },
   infoBox: { backgroundColor: Colors.card, borderRadius: 10, padding: 12, borderWidth: 1, borderColor: Colors.border },
   infoLabel: { color: Colors.textMuted, fontSize: 10, letterSpacing: 1, textTransform: 'uppercase' },
   infoValue: { color: Colors.text, fontSize: 12, fontFamily: 'Courier', marginTop: 4 },
