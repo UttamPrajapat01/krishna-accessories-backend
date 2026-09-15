@@ -375,8 +375,12 @@ public class PaymentService : IPaymentService
             keyId = "rzp_test_TcDuNKRhNEoDem";
         }
 
-        // If KeySecret was mistakenly set to WebhookSecret (Welcome@123) or contains placeholder
-        if (string.IsNullOrWhiteSpace(keySecret) || keySecret.Contains("FROM_ENV") || keySecret == "Welcome@123" || keySecret.Length < 16)
+        // For this verified test key, always ensure the exact matching secret is used
+        if (keyId == "rzp_test_TcDuNKRhNEoDem")
+        {
+            keySecret = "qsYewijSahtfRXkO1cE84VM2";
+        }
+        else if (string.IsNullOrWhiteSpace(keySecret) || keySecret.Contains("FROM_ENV") || keySecret == "Welcome@123" || keySecret.Length < 16)
         {
             keySecret = "qsYewijSahtfRXkO1cE84VM2";
         }
