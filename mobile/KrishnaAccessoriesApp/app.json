@@ -1,0 +1,66 @@
+{
+  "expo": {
+    "name": "Krishna Accessories",
+    "slug": "krishna-accessories",
+    "version": "1.0.4",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "scheme": "krishnaaccessories",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#FFFFFF"
+    },
+    "updates": {
+      "fallbackToCacheTimeout": 0
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.krishnaaccessories.app",
+      "infoPlist": {
+        "NSCameraUsageDescription": "Krishna Accessories needs camera access for product AR previews.",
+        "NSPhotoLibraryUsageDescription": "Krishna Accessories needs photo library access to upload avatar images.",
+        "NSFaceIDUsageDescription": "Krishna Accessories uses Face ID for secure instant checkout.",
+        "ITSAppUsesNonExemptEncryption": false
+      },
+      "config": {
+        "usesNonExemptEncryption": false
+      },
+      "buildNumber": "1"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#FFFFFF"
+      },
+      "package": "com.krishnaaccessories.app",
+      "versionCode": 4,
+      "permissions": [
+        "INTERNET",
+        "ACCESS_NETWORK_STATE",
+        "CAMERA",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE",
+        "VIBRATE",
+        "RECEIVE_BOOT_COMPLETED"
+      ],
+      "softwareKeyboardLayoutMode": "resize"
+    },
+    "web": {
+      "favicon": "./assets/favicon.png",
+      "name": "Krishna Accessories",
+      "shortName": "KA Luxury"
+    },
+    "extra": {
+      "apiBaseUrl": "http://localhost:5070/api",
+      "eas": {
+        "projectId": "bdb8e770-1361-4b57-ab8a-146aefad8133"
+      }
+    },
+    "owner": "bharat_009"
+  }
+}
